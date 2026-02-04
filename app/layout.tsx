@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, DM_Sans } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +10,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans", // optional but nice to have
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -24,10 +30,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${dmSans.className} antialiased bg-[#FFFFF2]`}>
+        <div className="absolute flex justify-center inset-0 w-full h-full overflow-hidden">
+          <div className="relative h-full w-full">
+            <img
+              src="/images/circle-vector.svg"
+              alt="Logo"
+              className="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-10"
+            />
+            <img
+              src="/images/blur.png"
+              alt="Logo"
+              className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10"
+            />
+            <img
+              src="/images/bg.png"
+              alt="Logo"
+              className="absolute top-0 left-1/2 transform -translate-x-1/2 z-0 "
+            />
+          </div>
+        </div>
+        <main className="relative z-20">{children}</main>
       </body>
     </html>
   );
