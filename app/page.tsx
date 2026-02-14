@@ -6,12 +6,20 @@ import React, { useState, useEffect, useRef } from "react";
 import { Send, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { guid } from "@/lib/generateguid";
+import { apiClient } from "@/lib/apiClient";
 
 interface Message {
   id: string;
   text: string;
   sender: "user" | "bot";
   timestamp: number;
+}
+
+interface MessageSubmitReq {
+  initialquestion: string | null
+  questionid: string
+  answertext: string
 }
 
 // Bot Message Component
@@ -69,11 +77,15 @@ const mockResponses = [
   "That's a really insightful observation. How does recognizing that make you feel?",
 ];
 
+const initialquestion = "Share what's on your mind.."
+
 const getRandomResponse = (): string => {
   return mockResponses[Math.floor(Math.random() * mockResponses.length)];
 };
 
 export default function Page() {
+  const [chatid, setChatid] = useState<string | null>(null)
+  const [questionid, setQuestionid] = useState<string>(guid())
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -82,34 +94,27 @@ export default function Page() {
 
   // Load messages from localStorage on mount
   useEffect(() => {
-    const storedMessages = localStorage.getItem("chatMessages");
-    if (storedMessages) {
-      const parsedMessages = JSON.parse(storedMessages);
-      setMessages(parsedMessages);
-      setShowChat(parsedMessages.length > 0);
-    }
+    // const storedMessages = localStorage.getItem("chatMessages");
+    // if (storedMessages) {
+    //   const parsedMessages = JSON.parse(storedMessages);
+    //   setMessages(parsedMessages);
+    //   setShowChat(parsedMessages.length > 0);
+    // }
   }, []);
-
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem("chatMessages", JSON.stringify(messages));
-    }
-  }, [messages]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!inputValue.trim()) return;
 
     // Add user message
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: questionid,
       text: inputValue,
       sender: "user",
       timestamp: Date.now(),
@@ -124,20 +129,35 @@ export default function Page() {
       setShowChat(true);
     }
 
-    // Simulate bot typing and response
-    setTimeout(
-      () => {
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: getRandomResponse(),
-          sender: "bot",
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsTyping(false);
-      },
-      1000 + Math.random() * 1000,
-    ); // Random delay between 1-2 seconds
+    const submitReq: MessageSubmitReq = {
+      initialquestion: chatid ? null : initialquestion,
+      answertext: userMessage.text,
+      questionid: userMessage.id
+    }
+
+    try {
+      const message = await apiClient.post<{ chatid: string; question: string, questionid: string, done: boolean }>('/chats/submit', submitReq);
+      console.log(message);
+      const botMessage: Message = {
+        id: message.data.questionid,
+        text: message.data.question,
+        sender: "bot",
+        timestamp: Date.now(),
+      };
+      setChatid(message.data.chatid);
+      setQuestionid(message.data.questionid)
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (err: any) {
+      const botMessage: Message = {
+        id: Date.now().toString(),
+        text: err.message,
+        sender: "bot",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, botMessage]);
+    } finally {
+      setIsTyping(false)
+    }
   };
 
   return (
@@ -283,7 +303,7 @@ export default function Page() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Share what's on your mind..."
+            placeholder={initialquestion}
             className="bg-white border-gray-200 focus-visible:ring-purple-400 h-12 flex-1"
             required
           />
